@@ -16,13 +16,13 @@ app.post('/add', (req, res) => {
     const currentData = req.body;
     const key = currentData.username;
     const now = new Date();
-
+    const JsonSize = sizeof(readData());
     const value = {
         name: currentData.name,
         age: currentData.age,
         password: currentData.password,
         email: currentData.email,
-        expiry: now.getTime() + 360000   // Giving time to live as 6minutes
+        expiry: now.getTime() + 36000   // Giving time to live as 6minutes
     };
 
     // to check if all the details are provided or not
@@ -44,6 +44,11 @@ app.post('/add', (req, res) => {
         return res.status(401).send({ error: true, msg: 'user already exists' })
     }
 
+    //to check if the JSON File exceeds 1GB
+    if (JsonSize > 1073741824) {
+        return res.status(401).send({ error: true, msg: 'The Json file exceeds 1GB' })
+    }
+
     storedData.push({ [key]: value });
     storeData(storedData)
     res.send({ success: true, msg: 'User stored successfully' })
@@ -54,15 +59,21 @@ app.get('/users/:user', (req, res) => {
     const users = readData()
     const reqUser = req.params.user
     const foundUser = (users.find((user) => Object.keys(user)[0] === reqUser))
-    key = Object.keys(foundUser)[0]
-    const now = new Date();
-    if (now.getTime() > foundUser[key].expiry) {
-        const deleteUser = users.filter((user) => Object.keys(user)[0] !== reqUser)
-        storeData(deleteUser)
-        res.status(409).send({ error: true, msg: 'User Account has Expired' })
+
+    if (foundUser) {
+        key = Object.keys(foundUser)[0]
+        const now = new Date();
+        if (now.getTime() > foundUser[key].expiry) {
+            const deleteUser = users.filter((user) => Object.keys(user)[0] !== reqUser)
+            storeData(deleteUser)
+            res.status(409).send({ error: true, msg: 'User Account has Expired' })
+        }
+        delete foundUser[key].expiry
+        res.send(foundUser[key])
+    } else {
+        res.status(404).send({ error: true, msg: 'User not found in the database' })
     }
-    delete foundUser[key].expiry
-    res.send(foundUser[key])
+
 })
 
 // To delete the mentioned User from the JSON Store
